@@ -148,13 +148,17 @@ def generate_html_report(open_browser=True):
 
     hist = ""
     for r in reversed(tl[-30:]):
-        pc = "#2e7d32" if r.get("pnl",0) and r["pnl"]>0 else "#c62828"
-        hist   += (f'<tr><td>{r["signal_date"]}</td>'
-                   f'<td>{r.get("close_date","-")}</td>'
-                   f'<td>{nl}L/{ns}S</td>'
-                   f'<td style="color:{pc};font-weight:bold">{pnl_str}</td>'
-                   f'<td>{r.get("pnl_pct","-")}%</td>'
-                   f'<td>{st}</td></tr>')
+        _pc  = "#2e7d32" if r.get("pnl",0) and r["pnl"]>0 else "#c62828"
+        _ps  = ("¥" + f'{r["pnl"]:,.0f}') if r["pnl"] is not None else "-"
+        _nl  = len([p for p in r["positions"] if p["direction"]=="LONG"])
+        _ns  = len([p for p in r["positions"] if p["direction"]=="SHORT"])
+        _st  = "🟢 CLOSED" if r["status"]=="CLOSED" else "🟡 OPEN"
+        hist += (f'<tr><td>{r["signal_date"]}</td>'
+                 f'<td>{r.get("close_date","-")}</td>'
+                 f'<td>{_nl}L/{_ns}S</td>'
+                 f'<td style="color:{_pc};font-weight:bold">{_ps}</td>'
+                 f'<td>{r.get("pnl_pct","-")}%</td>'
+                 f'<td>{_st}</td></tr>')
 
     html = f"""<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
