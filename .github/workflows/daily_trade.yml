@@ -1,0 +1,40 @@
+name: 日米リードラグ デモトレード 自動実行
+
+on:
+  schedule:
+    # 毎朝6:30 JST（UTC 21:30）に実行 ※米国市場クローズ後
+    - cron: '30 21 * * 1-5'  # 月〜金のみ
+  workflow_dispatch:  # 手動実行も可能
+
+jobs:
+  demo-trade:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: コードをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: Python 3.11 をセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: ライブラリをインストール
+        run: |
+          pip install yfinance pandas numpy scipy matplotlib pyarrow schedule requests
+
+      - name: デモトレード実行
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          python demo_trader.py --no-browser
+
+      - name: 取引ログをアーティファクトとして保存
+        uses: actions/upload-artifact@v4
+        with:
+          name: trade-log-${{ github.run_number }}
+          path: |
+            demo_trade_log.json
+            demo_signal_latest.json
+            demo_report.html
+          retention-days: 30
