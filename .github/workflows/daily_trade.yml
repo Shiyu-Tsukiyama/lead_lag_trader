@@ -3,7 +3,7 @@ name: 日米リードラグ デモトレード 自動実行
 on:
   schedule:
     # 毎朝6:30 JST（UTC 21:30）に実行 ※米国市場クローズ後
-    - cron: '30 21 * * 1-5'  # 月〜金のみ
+    - cron: '0 8 * * 1-5'  # 月〜金のみ
   workflow_dispatch:  # 手動実行も可能
 
 jobs:
