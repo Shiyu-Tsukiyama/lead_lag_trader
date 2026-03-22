@@ -38,7 +38,7 @@ def compute_today_signal():
     )
     from scipy.linalg import eigh
     log.info("データ取得中...")
-    r_cc, r_oc_jp = load_data()
+    r_cc, r_oc_jp, macro_df, close_prices = load_data()
     V0 = build_V0()
     C0 = build_C0(r_cc[r_cc.index <= PRIOR_END], V0)
     all_tickers = US_TICKERS + JP_TICKERS
