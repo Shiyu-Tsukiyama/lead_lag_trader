@@ -177,12 +177,37 @@ def generate_html_report(open_browser=True):
         _nl  = len([p for p in r["positions"] if p["direction"]=="LONG"])
         _ns  = len([p for p in r["positions"] if p["direction"]=="SHORT"])
         _st  = "🟢 CLOSED" if r["status"]=="CLOSED" else "🟡 OPEN"
-        hist += (f'<tr><td>{r["signal_date"]}</td>'
+        rid  = r["signal_date"].replace("-","")
+        hist += (f'<tr style="cursor:pointer" onclick="tog(\'{rid}\')">'
+                 f'<td>{r["signal_date"]}</td>'
                  f'<td>{r.get("close_date","-")}</td>'
                  f'<td>{_nl}L/{_ns}S</td>'
                  f'<td style="color:{_pc};font-weight:bold">{_ps}</td>'
                  f'<td>{r.get("pnl_pct","-")}%</td>'
                  f'<td>{_st}</td></tr>')
+        # 銘柄詳細行（クリックで展開）
+        long_pos  = [p for p in r["positions"] if p["direction"]=="LONG"]
+        short_pos = [p for p in r["positions"] if p["direction"]=="SHORT"]
+        detail = ""
+        for p in long_pos:
+            ret_val = p.get("realized_return", "-")
+            ret_col = "#2e7d32" if isinstance(ret_val, float) and ret_val > 0 else "#c62828"
+            ret_str = f'{ret_val:+.3f}%' if isinstance(ret_val, float) else "-"
+            detail += (f'<tr class="detail-{rid}" style="display:none;background:#e8f5e9">'
+                      f'<td colspan="2" style="padding-left:32px">🔼 {p["name"]}({p["ticker"]})</td>'
+                      f'<td>シグナル: {p["signal"]:.4f}</td>'
+                      f'<td style="color:{ret_col}">{ret_str}</td>'
+                      f'<td colspan="2"></td></tr>')
+        for p in short_pos:
+            ret_val = p.get("realized_return", "-")
+            ret_col = "#2e7d32" if isinstance(ret_val, float) and ret_val < 0 else "#c62828"
+            ret_str = f'{ret_val:+.3f}%' if isinstance(ret_val, float) else "-"
+            detail += (f'<tr class="detail-{rid}" style="display:none;background:#fce4ec">'
+                      f'<td colspan="2" style="padding-left:32px">🔽 {p["name"]}({p["ticker"]})</td>'
+                      f'<td>シグナル: {p["signal"]:.4f}</td>'
+                      f'<td style="color:{ret_col}">{ret_str}</td>'
+                      f'<td colspan="2"></td></tr>')
+        hist += detail
 
     html = f"""<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -238,6 +263,11 @@ new Chart(document.getElementById('c').getContext('2d'),{{
   options:{{responsive:true,plugins:{{legend:{{display:false}}}},
   scales:{{y:{{ticks:{{callback:v=>'¥'+v.toLocaleString()}}}}}}}}
 }});
+function tog(id) {{
+  document.querySelectorAll('.detail-' + id).forEach(r => {{
+    r.style.display = r.style.display === 'none' ? '' : 'none';
+  }});
+}}
 </script></body></html>"""
 
     REPORT_PATH.write_text(html, encoding="utf-8")
