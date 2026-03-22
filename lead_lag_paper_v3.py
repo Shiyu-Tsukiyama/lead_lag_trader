@@ -58,7 +58,10 @@ USDJPY_MOVE = 0.015
 # ============================================================
 # Step 1: データ取得
 # ============================================================
-def load_data(start="2010-01-01", end="2025-12-31", cache_dir="data_cache"):
+def load_data(start="2010-01-01", end=None, cache_dir="data_cache"):
+    from datetime import date
+    if end is None:
+        end = date.today().strftime("%Y-%m-%d")
     import yfinance as yf
     cache = Path(cache_dir)
     cache.mkdir(exist_ok=True)
@@ -66,8 +69,19 @@ def load_data(start="2010-01-01", end="2025-12-31", cache_dir="data_cache"):
     fp_etf = cache / "raw.parquet"
     all_tickers = US_TICKERS + JP_TICKERS
     if fp_etf.exists():
-        log.info("ETFキャッシュからロード")
         raw = pd.read_parquet(fp_etf)
+        cached_end = raw.index.max().strftime("%Y-%m-%d")
+        today = date.today().strftime("%Y-%m-%d")
+        if cached_end >= today:
+            log.info(f"ETFキャッシュからロード（最新: {cached_end}）")
+        else:
+            log.info(f"キャッシュ更新中（{cached_end} → {today}）")
+            new = yf.download(US_TICKERS + JP_TICKERS,
+                              start=cached_end, end=end,
+                              auto_adjust=True, progress=False, threads=True)
+            raw = pd.concat([raw, new]).sort_index()
+            raw = raw[~raw.index.duplicated(keep="last")]
+            raw.to_parquet(fp_etf)
     else:
         log.info(f"ETFダウンロード: {start} 〜 {end}")
         raw = yf.download(all_tickers, start=start, end=end,
@@ -98,12 +112,22 @@ def load_data(start="2010-01-01", end="2025-12-31", cache_dir="data_cache"):
     return r_cc, r_oc_jp, macro_df, close
 
 
-def load_macro_data(start="2010-01-01", end="2025-12-31", cache_dir="data_cache"):
+def load_macro_data(start="2010-01-01", end=None, cache_dir="data_cache"):
+    from datetime import date
+    if end is None:
+        end = date.today().strftime("%Y-%m-%d")
     import yfinance as yf
     fp = Path(cache_dir) / "macro.parquet"
     if fp.exists():
-        log.info("マクロデータキャッシュからロード")
-        return pd.read_parquet(fp)
+        macro = pd.read_parquet(fp)
+        cached_end = macro.index.max().strftime("%Y-%m-%d")
+        today = date.today().strftime("%Y-%m-%d")
+        if cached_end >= today:
+            log.info(f"マクロデータキャッシュからロード（最新: {cached_end}）")
+            return macro
+        else:
+            log.info(f"マクロデータ更新中（{cached_end} → {today}）")
+            # 以降は新規ダウンロード処理に続く
 
     log.info("マクロデータダウンロード中...")
     tickers = list(MACRO_TICKERS.values())
