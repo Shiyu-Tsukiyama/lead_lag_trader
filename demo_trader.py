@@ -28,7 +28,14 @@ JP_NAMES = {
 }
 
 def compute_today_signal():
-    from lead_lag_paper import load_data, build_V0, build_C0, US_TICKERS, JP_TICKERS, LAM, K, L, PRIOR_END, Q
+    from lead_lag_paper_v3 import (
+        load_data, build_V0, build_C0,
+        compute_technical_features, build_lgbm_features,
+        train_lgbm_signals, predict_lgbm_signals,
+        US_TICKERS, JP_TICKERS,
+        LAM, K, L, PRIOR_END, Q, TRAIN_END,
+        LGBM_SKIP_THRESHOLD
+    )
     from scipy.linalg import eigh
     log.info("データ取得中...")
     r_cc, r_oc_jp = load_data()
@@ -58,7 +65,24 @@ def compute_today_signal():
     V_U, V_J = V_K[:n_us], V_K[n_us:]
     z_us = np.nan_to_num((all_ret[t,:n_us] - mu[:n_us]) / sigma[:n_us], nan=0.0)
     z_hat = V_J @ (V_U.T @ z_us)
-    signals = {JP_TICKERS[i]: round(float(z_hat[i]), 6) for i in range(n_jp)}
+    # LightGBMフィルター適用
+    log.info("LightGBMフィルター計算中...")
+    tech_feats  = compute_technical_features(close_prices, US_TICKERS + JP_TICKERS)
+    feat_df     = build_lgbm_features(
+                    pd.DataFrame([z_hat], index=[signal_date], columns=JP_TICKERS),
+                    tech_feats, macro_df, r_cc)
+    models      = train_lgbm_signals(feat_df, r_oc_jp, train_end=TRAIN_END)
+    lgbm_filter = predict_lgbm_signals(models, feat_df,
+                                        test_start=signal_date.strftime("%Y-%m-%d"))
+
+    # フィルターを適用してシグナルを絞る
+    ok_prob = lgbm_filter.iloc[-1] if len(lgbm_filter) > 0 else pd.Series()
+    z_hat_series = pd.Series(z_hat, index=JP_TICKERS)
+    if len(ok_prob) > 0:
+        z_hat_series = z_hat_series[
+            ok_prob.reindex(z_hat_series.index).fillna(0.5) >= LGBM_SKIP_THRESHOLD
+        ]
+    signals = {t: round(float(v), 6) for t, v in z_hat_series.items()}
     sig_s   = pd.Series(signals); n_pos = max(1, int(np.ceil(len(sig_s)*Q)))
     sorted_idx = sig_s.sort_values(ascending=False).index
     result = {
