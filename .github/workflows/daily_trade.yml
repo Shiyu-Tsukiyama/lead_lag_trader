@@ -21,7 +21,7 @@ jobs:
 
       - name: ライブラリをインストール
         run: |
-          pip install yfinance pandas numpy scipy matplotlib pyarrow schedule requests
+          pip install yfinance pandas numpy scipy matplotlib pyarrow schedule requests lightgbm scikit-learn
 
       - name: デモトレード実行
         env:
